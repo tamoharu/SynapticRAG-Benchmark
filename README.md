@@ -30,7 +30,7 @@ Parameter Analysis
 python analyze.py --dataset SMRCs --lang en
 ```
 
-you can see the each results in `results` directory.
+You can see the results in the results directory.
 
 ## Options
 
