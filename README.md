@@ -10,41 +10,31 @@ Run the following command:
 python install.py
 ```
 
-## Available Model and Dataset Names
+## Quick Start
 
-### Model Names
-
-- SynapticRAG:
+Main Results
 
 ```
---model sr
+python eval.py --dataset SMRCs --lang en
 ```
 
-- MemoryBank:
+Ablation Study
 
 ```
---model mb
+python ablation.py --dataset SMRCs --lang en
 ```
 
-- MemoryBank (Extended)
+Parameter Analysis
 
 ```
---model mb_ex
+python analyze.py --dataset SMRCs --lang en
 ```
 
-- MyAgent:
+you can see the each results in `results` directory.
 
-```
---model ma
-```
+## Options
 
-- MyAgent (Extended):
-
-```
---model ma_ex
-```
-
-### Dataset Names
+Select the dataset and language:
 
 - PerLTQA:
 
@@ -58,24 +48,4 @@ python install.py
 ```
 --dataset SMRCs --lang en
 --dataset SMRCs --lang ja
-```
-
-## Optimization
-
-Select the model name in the root directory. 
-
-Example:
-
-```
-python optimize.py --model sr
-```
-
-## Evaluation
-
-Select the dataset. 
-
-Example:
-
-```
-python run.py --dataset SMRCs --lang en
 ```
