@@ -19,11 +19,11 @@ class EvalProcess(Eval):
         self.conv_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../process_files'))
         self.count = 0
         if lang == 'en':
-            self.dialogue_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../datasets/SMRCs/dataset/SMRCs/dataset_EN.json'))
+            self.dialogue_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../dataset/SMRCs/dataset_EN.json'))
             self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../datasets/SMRCs/dataset/prepared/vectors_en.db'))
             self.result_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../results/SMRCs (EN)/'))
         elif lang == 'ja':
-            self.dialogue_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../datasets/SMRCs/dataset/SMRCs/dataset_JA.json'))
+            self.dialogue_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../dataset/SMRCs/dataset_JA.json'))
             self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../datasets/SMRCs/dataset/prepared/vectors_ja.db'))
             self.result_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../results/SMRCs (JA)/'))
         else:

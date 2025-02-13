@@ -53,9 +53,9 @@ def download_and_extract(url, extract_to):
 def download_datasets():
     for dataset, urls in datasets.items():
         if dataset == "SMRCs":
-            extract_to = "./datasets/SMRCs/dataset/prepared"
+            extract_to = "./datasets/SMRCs/dataset"
         elif dataset == "PerLTQA":
-            extract_to = "./datasets/PerLTQA/dataset/prepared"
+            extract_to = "./datasets/PerLTQA/dataset"
         else:
             continue
 

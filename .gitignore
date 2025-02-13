@@ -1,5 +1,6 @@
 .git
 .vscode
+**/__MACOSX
 assets/*
 discard/*
 **/pyvenv.cfg
@@ -10,7 +11,7 @@ discard/*
 **/*.env
 **/*.db
 **/*.zip
-**/log/*.txt
+**/*.txt
 /process_files/**
 /zip.py
 /discarded
