@@ -1,0 +1,9 @@
+gitignore_parser==0.1.11
+httpx==0.28.1
+matplotlib==3.7.0
+numpy==2.2.2
+optuna==3.6.1
+pandas==1.5.3
+python-dotenv==1.0.1
+tenacity==8.2.2
+tqdm==4.66.1
