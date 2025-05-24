@@ -11,10 +11,10 @@ def run(dataset, language):
         raise ValueError(f"Unsupported dataset: {dataset}")
 
     eval_process = EvalProcess(language)
-    eval_process.eval_run(parameters.sr_params, parameters.ma_params, parameters.ma_ex_params, parameters.mb_ex_params)
-    eval_process.k_post()
-    eval_process.erc_post()
-    eval_process.plot()
+    # eval_process.eval_run(parameters.sr_params, parameters.ma_params, parameters.ma_ex_params, parameters.mb_ex_params)
+    eval_process._k_post()
+    # eval_process.erc_post()
+    # eval_process.plot()
 
 
 if __name__ == '__main__':

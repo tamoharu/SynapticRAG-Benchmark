@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from config import words
 from utils.log import Log
 from utils.memory_model import MemoryModel
+from utils.timer import average_timer
 
 
 log_level = 'error'
@@ -254,6 +255,135 @@ class Eval:
         with open(self.result_dir + '/k_result.json', 'w') as f:
             json.dump(k_results, f, indent=4)
 
+
+    def _k_post(self):
+        # memories.jsonには、"results"というキーの下にdictが格納されたリストがあると仮定する
+        with open(self.result_dir + '/memories.json', 'r') as f:
+            data = json.load(f)
+        # もしファイル直下がリストの場合は、以下の行をコメントアウトしてください
+        results = data  
+
+        # 正解ラベルの数（recallリストの長さ）ごとにグループ分け
+        groups = {}
+        for result in results:
+            recall_len = len(result['recall'])
+            groups.setdefault(recall_len, []).append(result)
+
+        # 各グループのタスク数を表示
+        for recall_len, group in sorted(groups.items()):
+            print(f"recall数が{recall_len}のタスク数: {len(group)}")
+
+        # グループごとに、kの値ごとの評価結果を保存する辞書を用意
+        k_results_by_group = {}
+
+        # グループ（recallの長さ）ごとに処理
+        for recall_len, group in groups.items():
+            group_results = []
+            # グループ内の各resultにおいて、kの最小値は正解ラベルの数（＝recall_len）、
+            # 最大値は各resultの'sr'リストの長さの最大値とする
+            group_min_k = recall_len
+            group_max_k = max(len(result['sr']) for result in group)
+            
+            # kの値を変化させながら評価
+            for k in range(group_min_k, group_max_k + 1):
+                # 各手法ごとの合計値を初期化
+                recall_sr = recall_ma = recall_ma_ex = recall_mb = recall_mb_ex = recall_rag = 0
+                precision_sr = precision_ma = precision_ma_ex = precision_mb = precision_mb_ex = precision_rag = 0
+
+                for result in group:
+                    # 各resultについて、各手法の上位k件を取得し、正解との一致数を数える
+                    tp_sr = 0
+                    sr_results = self.get_top_k_indices(k, result['sr'])
+                    for sr_result in sr_results:
+                        if int(sr_result) in result['recall']:
+                            tp_sr += 1
+                    recall_sr += tp_sr / len(result['recall'])
+                    precision_sr += tp_sr / k
+
+                    tp_ma = 0
+                    ma_results = self.get_top_k_indices(k, result['ma'])
+                    for ma_result in ma_results:
+                        if int(ma_result) in result['recall']:
+                            tp_ma += 1
+                    recall_ma += tp_ma / len(result['recall'])
+                    precision_ma += tp_ma / k
+
+                    tp_ma_ex = 0
+                    ma_ex_results = self.get_top_k_indices(k, result['ma_ex'])
+                    for ma_ex_result in ma_ex_results:
+                        if int(ma_ex_result) in result['recall']:
+                            tp_ma_ex += 1
+                    recall_ma_ex += tp_ma_ex / len(result['recall'])
+                    precision_ma_ex += tp_ma_ex / k
+
+                    tp_mb = 0
+                    mb_results = self.get_top_k_indices(k, result['mb'])
+                    for mb_result in mb_results:
+                        if int(mb_result) in result['recall']:
+                            tp_mb += 1
+                    recall_mb += tp_mb / len(result['recall'])
+                    precision_mb += tp_mb / k
+
+                    tp_mb_ex = 0
+                    mb_ex_results = self.get_top_k_indices(k, result['mb_ex'])
+                    for mb_ex_result in mb_ex_results:
+                        if int(mb_ex_result) in result['recall']:
+                            tp_mb_ex += 1
+                    recall_mb_ex += tp_mb_ex / len(result['recall'])
+                    precision_mb_ex += tp_mb_ex / k
+
+                    tp_rag = 0
+                    rag_results = self.get_top_k_indices(k, result['rag'])
+                    for rag_result in rag_results:
+                        if int(rag_result) in result['recall']:
+                            tp_rag += 1
+                    recall_rag += tp_rag / len(result['recall'])
+                    precision_rag += tp_rag / k
+
+                # グループ内のresultの数で平均をとる
+                n = len(group)
+                recall_sr /= n
+                recall_ma /= n
+                recall_ma_ex /= n
+                recall_mb /= n
+                recall_mb_ex /= n
+                recall_rag /= n
+                precision_sr /= n
+                precision_ma /= n
+                precision_ma_ex /= n
+                precision_mb /= n
+                precision_mb_ex /= n
+                precision_rag /= n
+
+                group_results.append({
+                    'k': k,
+                    'recall_SynapticRAG': recall_sr,
+                    'recall_RAG': recall_rag,
+                    'recall_MyAgent': recall_ma,
+                    'recall_MyAgent(ext)': recall_ma_ex,
+                    'recall_MemoryBank': recall_mb,
+                    'recall_MemoryBank(ext)': recall_mb_ex,
+                    'precision_SynapticRAG': precision_sr,
+                    'precision_RAG': precision_rag,
+                    'precision_MyAgent': precision_ma,
+                    'precision_MyAgent(ext)': precision_ma_ex,
+                    'precision_MemoryBank': precision_mb,
+                    'precision_MemoryBank(ext)': precision_mb_ex
+                })
+
+                # いずれかの手法でrecallが0.99以上になった場合は、kループを終了
+                if (recall_sr >= 0.99 or recall_ma >= 0.99 or recall_ma_ex >= 0.99 or 
+                    recall_mb >= 0.99 or recall_mb_ex >= 0.99 or recall_rag >= 0.99):
+                    break
+            
+            # キーを文字列にしておく（JSONのキーは文字列になるため）
+            k_results_by_group[str(recall_len)] = group_results
+
+        # グループごとの結果をk_result.jsonに保存
+        with open(self.result_dir + '/k_result.json', 'w') as f:
+            json.dump(k_results_by_group, f, indent=4)
+
+
     def plot(self):
         data_path = self.result_dir + '/k_result.json'
         dataset_name = os.path.basename(self.result_dir)
@@ -374,27 +504,11 @@ class Eval:
         mb_data = self.prepare_data(None, mb_sql, dialogue['index'], dialogue['vector'])
         mb_ex_data = self.prepare_data(None, mb_ex_sql, dialogue['index'], dialogue['vector'])
     
-        import time
-        start = time.time()
         sr_results = self.propagate_stimuli(faiss, sr_sql, sr_data, cos_th, v_th, stimulus_th, tau_init, tau_scale, time_scale, bond_scale, v_rest, i_rest)
-        if measure_time:
-            print(f"SR: {time.time() - start}")
-        start = time.time()
         ma_results = self.my_agent(faiss, ma_sql, ma_data, ma_cos_th)
-        if measure_time:
-            print(f"MA: {time.time() - start}")
-        start = time.time()
         ma_ex_results = self.my_agent_ex(faiss, ma_ex_sql, ma_ex_data, ma_ex_cos_th, r_scale, t_scale, g_scale)
-        if measure_time:
-            print(f"MA_EX: {time.time() - start}")
-        start = time.time()
         mb_results = self.memory_bank(faiss, mb_sql, mb_data)
-        if measure_time:
-            print(f"MB: {time.time() - start}")
-        start = time.time()
         mb_ex_results = self.memory_bank_ex(faiss, mb_ex_sql, mb_ex_data, top_k, forget_th, mb_t_scale, s_scale, s_init)
-        if measure_time:
-            print(f"MB_EX: {time.time() - start}")
         return sr_results, ma_results, ma_ex_results, mb_results, mb_ex_results
 
     def prepare_data(self, faiss, sql, index: int, vector: list) -> dict:
@@ -414,6 +528,7 @@ class Eval:
         sql.add_data_to_database(data)
         return data
     
+    @average_timer
     def propagate_stimuli(self, faiss, sql, initial_data: dict, cos_th, v_th, stimulus_th, tau_init, tau_scale, time_scale, bond_scale, v_rest, i_rest) -> dict:
         parent_queue = [(initial_data, 1)]
         queried_indices = []
@@ -455,7 +570,67 @@ class Eval:
             parent_queue = child_queue
             child_queue = []
         return memories
+
+    # @average_timer
+    # def propagate_stimuli(self, faiss, sql, initial_data: dict, cos_th, v_th, stimulus_th, tau_init, tau_scale, time_scale, bond_scale, v_rest, i_rest) -> dict:
+    #     parent_queue = [(initial_data, 1)]
+    #     queried_indices = []
+    #     memories = {}
+    #     generation = 0
+    #     while parent_queue:
+    #         generation += 1
+    #         self.log.info(words.get('processing_generation', generation=generation))
+    #         child_queue = []
+    #         children_data = {}
+    #         for parent_data, _ in parent_queue:
+    #             queried_indices.append(parent_data['id'])
+
+    #         center_parent_vector = numpy.zeros(len(parent_queue[0][0]['vector']))
+    #         for parent_data, parent_stimulus in parent_queue:
+    #             parent_vector = numpy.array(parent_data['vector'])
+    #             # center_parent_vector = numpy.add(center_parent_vector, parent_vector)
+    #             center_parent_vector += parent_vector
+    #             # print(parent_vector)
+    #         center_parent_vector /= len(parent_queue)
+    #         # max_cos_similarity = 0
+    #         # for parent_data, parent_stimulus in parent_queue:
+    #         #     max_cos_similarity = max(max_cos_similarity, numpy.dot(center_parent_vector, parent_data['vector']))
+
+
+    #         results = faiss.search_embeddings(query_vector=center_parent_vector, threshold=cos_th, exclude_ids=queried_indices, top_k=10)
+    #         for parent_data, parent_stimulus in parent_queue:
+    #             self.log.debug(words.get('search_results', results=results))
+    #             for index, distance in zip(*results):
+    #                 child_data = sql.get_data_by_index(index)
+    #                 child_stimulus = self.memory.stimulate(distance=distance, parent_data=parent_data, child_data=child_data, tau_init=tau_init, tau_scale=tau_scale, bond_scale=bond_scale)
+    #                 stimulus = parent_stimulus * child_stimulus
+    #                 if stimulus < stimulus_th:
+    #                     continue
+    #                 if child_data['id'] in children_data and children_data[child_data['id']][1] > stimulus:
+    #                     continue
+    #                 copied_data = child_data.copy()
+    #                 copied_data['spike'][0].append(stimulus)
+    #                 copied_data['spike'][1].append(initial_data['id'])
+    #                 lif_data = self.memory.lif(data=copied_data, count=initial_data['id'], v_th=v_th, tau_init=tau_init, tau_scale=tau_scale, time_scale=time_scale, v_rest=v_rest, i_rest=i_rest)
+    #                 for key in lif_data:
+    #                     copied_data[key] = lif_data[key]
+    #                 children_data[child_data['id']] = (copied_data, stimulus)
+    #         for _, (data, stim) in children_data.items():
+    #             sql.update_data_in_database(data)
+    #             if data['fire'] != -1:
+    #                 memories[data['id']] = data['fire'] + 1000
+    #             else:
+    #                 memories[data['id']] = data['v'] + 100
+    #             child_queue.append((data, stim))
+    #         parent_queue = child_queue
+    #         child_queue = []
+    #     return memories
     
+    @average_timer
+    def rag(self, faiss, query_vector, exclude_ids):
+        return faiss.search_embeddings(query_vector=query_vector, exclude_ids=exclude_ids)
+
+    @average_timer
     def my_agent(self, faiss, sql, data, cos_th):
         def calc_p(input_data: dict, memory_data: dict, distance: float) -> float:
             r = distance
@@ -493,6 +668,7 @@ class Eval:
             sql.update_data_in_database(fired_memory)
         return memory_p
     
+    @average_timer
     def my_agent_ex(self, faiss, sql, data, cos_th, r_scale, t_scale, g_scale):
         def calc_p(input_data: dict, memory_data: dict, distance: float) -> float:
             r = distance
@@ -534,6 +710,7 @@ class Eval:
             sql.update_data_in_database(fired_memory) 
         return memory_p
     
+    @average_timer
     def memory_bank(self, faiss, sql, data):
         results = faiss.search_embeddings(query_vector=data['vector'], exclude_ids=[data['id']])
         recall_memories = [[], []]
@@ -557,6 +734,7 @@ class Eval:
                 sql.update_data_in_database(memory)
         return memories
     
+    @average_timer
     def memory_bank_ex(self, faiss, sql, data, top_k, forget_th, t_scale, s_scale, s_init):
         results = faiss.search_embeddings(query_vector=data['vector'], exclude_ids=[data['id']])
         recall_memories = [[], []]

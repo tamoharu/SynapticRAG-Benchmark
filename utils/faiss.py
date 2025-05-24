@@ -21,10 +21,13 @@ class Faiss:
         self.index.add_with_ids(embedding_np, id_np) #type: ignore
         self.save_index()
 
-    def search_embeddings(self, query_vector: numpy.ndarray, threshold: float = 0, exclude_ids: list = []) -> list:
+    def search_embeddings(self, query_vector: numpy.ndarray, threshold: float = 0, exclude_ids: list = [], top_k = None) -> list:
         query_vector = numpy.array([query_vector], dtype=numpy.float32)
         query_vector /= numpy.linalg.norm(query_vector)
-        distances, indices = self.index.search(query_vector, self.index.ntotal) #type: ignore
+        if top_k:
+            distances, indices = self.index.search(query_vector, top_k) #type: ignore
+        else:
+            distances, indices = self.index.search(query_vector, self.index.ntotal) #type: ignore
         distances, indices = distances[0], indices[0]
         indices = [int(i) for i in indices]
         distances = [float(d) for d in distances]

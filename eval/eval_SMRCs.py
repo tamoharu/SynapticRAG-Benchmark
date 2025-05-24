@@ -19,11 +19,11 @@ class EvalProcess(Eval):
         self.conv_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../process_files'))
         self.count = 0
         if lang == 'en':
-            self.dialogue_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../dataset/SMRCs/dataset_EN.json'))
+            self.dialogue_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../datasets/SMRCs/dataset/raw/dataset_EN.json'))
             self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../datasets/SMRCs/dataset/prepared/vectors_en.db'))
             self.result_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../results/SMRCs (EN)/'))
         elif lang == 'ja':
-            self.dialogue_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../dataset/SMRCs/dataset_JA.json'))
+            self.dialogue_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../datasets/SMRCs/dataset/raw/dataset_JA.json'))
             self.db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../datasets/SMRCs/dataset/prepared/vectors_ja.db'))
             self.result_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../results/SMRCs (JA)/'))
         else:
@@ -47,7 +47,8 @@ class EvalProcess(Eval):
             for dialogue in dialogues:
                 sr_results, ma_results, ma_ex_results, mb_results, mb_ex_results = self.prepare_dialogue(dialogue, faiss, sr_sql, ma_sql, ma_ex_sql, mb_sql, mb_ex_sql, sr_params, ma_params, ma_ex_params, mb_ex_params)
                 if len(dialogue['recall']) > 0:
-                    rag_search = faiss.search_embeddings(query_vector=dialogue['vector'], exclude_ids=[dialogue['index']])
+                    rag_search = self.rag(faiss, dialogue['vector'], [dialogue['index']])
+                    # rag_search = faiss.search_embeddings(query_vector=dialogue['vector'], exclude_ids=[dialogue['index']])
                     rag_results = {}
                     for id, distance in zip(rag_search[0], rag_search[1]):
                         rag_results[id] = distance
@@ -80,6 +81,19 @@ class EvalProcess(Eval):
         with open(self.result_dir + '/memories.json', 'w') as f:
             json.dump(all_results, f, indent=4)
         self.clear_directory()
+        rag_time = sum(self.rag.times) / self.rag.count
+        sr_time = sum(self.propagate_stimuli.times) / self.propagate_stimuli.count
+        ma_time = sum(self.my_agent.times) / self.my_agent.count
+        ma_ex_time = sum(self.my_agent_ex.times) / self.my_agent_ex.count
+        mb_time = sum(self.memory_bank.times) / self.memory_bank.count
+        mb_ex_time = sum(self.memory_bank_ex.times) / self.memory_bank_ex.count
+        print(f"RAG: {rag_time} s")
+        print(f"SR: {sr_time} s")
+        print(f"MA: {ma_time} s")
+        print(f"MA_ex: {ma_ex_time} s")
+        print(f"MB: {mb_time} s")
+        print(f"MB_ex: {mb_ex_time} s")
+
 
     def sr_opt_run(self, trial, count_th, sr_params):
         cos_th = sr_params['cos_th']
